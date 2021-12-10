@@ -1,0 +1,8 @@
+---
+- name: Get information from hosts
+  include: verification.yml
+
+- name: Include task for generate ans send mail report
+  include: report.yml
+  when: mail_host is defined and (mail_rcpt_to is defined or report_cont_mail is defined)
+...
