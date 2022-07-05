@@ -35,19 +35,29 @@
   delegate_to: "{{ report_host }}"
   run_once: true
 
+- name: Create temp path for report
+  set_fact:
+    report_csv: "/var/tmp/Report_OS_{{ report_date }}_{{ random_num }}.csv"
+    cacheable: no
+  delegate_to: "{{ report_host }}"
+  run_once: true
+
 - name: Check service facts
   service_facts: 
 
-- name: Check load zones
-  shell: rndc status
-  register: load_zones_output
-  ignore_errors: true
+- name: Create reports
+  template:
+    src: report_html.j2
+    dest: "{{ report_html }}"
+  delegate_to: "{{ report_host | default('127.0.0.1') }}"
+  run_once: true
+  become: false
 
 - name: Create reports
   template:
-    src: report.j2
-    dest: "{{ report_html }}"
-  delegate_to: "{{ report_host }}"
+    src: report_csv.j2
+    dest: "{{ report_csv }}"
+  delegate_to: "{{ report_host | default('127.0.0.1') }}"
   run_once: true
   become: false
 
@@ -60,19 +70,24 @@
     subtype: html
     charset: utf8
     subject: Verification role report {{ report_date }}
-    attach: "{{ report_html }}"
+    attach: 
+      - "{{ report_html }}"
+      - "{{ report_csv }}"
     body: >
           <h4 style="text-align: center">Please Open the attached HTML report in a modern javascript enabled web browser.</h4>
-  delegate_to: "{{ report_host }}"
+  delegate_to: "{{ report_host | default('127.0.0.1') }}"
   run_once: true
   become: false
   when: mail_host is defined and mail_from is defined and mail_rcpt_to is defined
 
 - name: Cleanup
   file:
-    path: "{{ report_html }}"
+    path: "{{ item }}"
     state: absent
-  delegate_to: "{{ report_host }}"
+  delegate_to: "{{ report_host | default('127.0.0.1') }}"
   run_once: true
   become: false
+  loop:
+    - "{{ report_html }}"
+    - "{{ report_csv }}"
 ...
