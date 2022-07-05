@@ -1,100 +1,207 @@
 ---
-- name: Get OS release
-  debug:
-    msg: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
-
-- name: Exist volume group SystemData
+- name: Exist and total size volume group SystemData
   set_fact:
     vg_systemdata: "{{ item.value.size_g }}"
     cacheable: no
-  when: (item.key  == "VG_SystemData" and item.value.size_g >= "15")
+  when: (item.key  == "VG_SystemData" and item.value.size_g >= "14.95")
   with_dict: "{{ ansible_lvm.vgs }}"
   delegate_facts: True
 
-- name: Exist volume group SystemData
+- name: Exist and total size volume group SystemData
   set_fact:
     vg_software: "{{ item.value.size_g }}"
     cacheable: no
-  when: (item.key  == "VG_SoftWare" and item.value.size_g >= "15")
+  when: (item.key  == "VG_SoftWare" and item.value.size_g >= "14.95")
   with_dict: "{{ ansible_lvm.vgs }}"
   delegate_facts: True
 
-- name: Exist volume group SystemData
+- name: Exist and total size volume group SystemData
   set_fact:
     vg_otherdata: "{{ item.value.size_g }}"
     cacheable: no
-  when: (item.key  == "VG_OtherData" and item.value.size_g >= "15")
+  when: (item.key  == "VG_OtherData" and item.value.size_g >= "14.95")
   with_dict: "{{ ansible_lvm.vgs }}"
   delegate_facts: True
 
+- name: Check service facts
+  service_facts:
+
+- name: Check iptables active
+  shell:
+    cmd: systemctl is-active iptables.service
+  register: iptables_state
+  changed_when: False
+  ignore_errors: yes
+
+- name: Check nftables active
+  shell:
+    cmd: systemctl is-active nftables.service
+  register: nftables_state
+  changed_when: False
+  ignore_errors: yes
+
 - name: Read anaconda kickstart
-  set_fact:
-    anaconda_kickstart: "{{ lookup('file', '/root/anaconda-ks.cfg') }}"
-    cacheable: no
-  delegate_facts: True
+  slurp:
+    src: /etc/chrony.conf
+  register: anaconda_kickstart
 
 - name: Disk layout anaconda kickstart
   set_fact:
-    ks_cfg_disk: "{{ anaconda_kickstart | regex_search('\\W\\sGet\\sDisk\\ssize\\sinformation\\s\\/dev\\/sd.') }}"
+    ks_cfg_disk: "{{ anaconda_kickstart['content'] | b64decode | regex_search('\\W\\sGet\\sDisk\\ssize\\sinformation\\s\\/dev\\/sd.') }}"
     cacheable: no
   delegate_facts: True
 
 - name: Configuration network anaconda kickstart
   set_fact:
-    ks_cfg_network: "{{ anaconda_kickstart | regex_search('\\s*\\w{4}\\s-p\\s\\WPlease enter domain suffix \\(rzd or gvc\\.oao\\.rzd\\)\\W\\s\\W') }}"
+    ks_cfg_network: "{{ anaconda_kickstart['content'] | b64decode | regex_search('\\s*\\w{4}\\s-p\\s\\WPlease enter domain suffix \\(rzd or gvc\\.oao\\.rzd\\)\\W\\s\\W') }}"
     cacheable: no
   delegate_facts: True
 
 - name: Modify bashrc anaconda kickstart
   set_fact:
-    ks_cfg_bash: "{{ anaconda_kickstart | regex_search('\\W\\sModify\\sglobal\\sbashrc') }}"
+    ks_cfg_bash: "{{ anaconda_kickstart['content'] | b64decode | regex_search('\\W\\sModify\\sglobal\\sbashrc') }}"
     cacheable: no
   delegate_facts: True
 
 - name: Read chrony config
-  set_fact:
-    chrony_config: "{{ lookup('file', '/etc/chrony.conf') }}"
-    cacheable: no
-  delegate_facts: True
+  slurp:
+    src: /etc/chrony.conf
+  register: chrony_config
 
 - name: Configuration Chrony
   set_fact:
-    ntp_servers: "{{ chrony_config | regex_findall ('server\\s10.\\d{1,3}.\\d{1,3}.\\d{1,3}\\siburst') }}"
+    ntp_servers: "{{ chrony_config['content'] | b64decode | regex_findall ('server\\s10.\\d{1,3}.\\d{1,3}.\\d{1,3}\\siburst') }}"
     cacheable: no
   delegate_facts: True
 
-- name: Get users info
-  slurp:
-    src: /etc/passwd
-  register: users
+- name: Get all users info
+  getent:
+    database: passwd
 
-- name: Check adminos
+- name: Find all user accounts
   set_fact:
-    adminos_usr: "{{ users['content'] | b64decode | regex_search('adminos') }}"
+    all_accounts: "{{ all_accounts | default([]) }} + [ '{{ item.key }}' ]"
+    cacheable: no
+  delegate_facts: True
+  loop: "{{ ansible_facts.getent_passwd | dict2items }}"
+
+- name: Find adminos account
+  set_fact:
+    adminos_account: "{{ all_accounts | map('regex_search','^adminos') | select('string') | list }}"
     cacheable: no
   delegate_facts: True
 
-- name: Check adminptk
+- name: Find adminptk account
   set_fact:
-    adminptk_usr: "{{ users['content'] | b64decode | regex_search('adminptk') }}"
+    adminptk_account: "{{ all_accounts | map('regex_search','^adminptk') | select('string') | list }}"
     cacheable: no
   delegate_facts: True
 
-- name: Check smenaptk
+- name: Find smenaptk account
   set_fact:
-    smenaptk_usr: "{{ users['content'] | b64decode | regex_search('smenaptk') }}"
+    smenaptk_account: "{{ all_accounts | map('regex_search','^smenaptk') | select('string') | list }}"
     cacheable: no
   delegate_facts: True
 
-- name: Check adminvp0
+- name: Find all adminvp accounts
   set_fact:
-    adminvp0_usr: "{{ users['content'] | b64decode | regex_search('adminvp0') }}"
+    adminvp_accounts: "{{ all_accounts | map('regex_search','^adminvp\\d{1,3}') | select('string') | list }}"
+    cacheable: no
+  delegate_facts: True
+
+- name: Find foreman-proxy-user account
+  set_fact:
+    foreman_proxy_user_account: "{{ all_accounts | map('regex_search','^foreman-proxy-user') | select('string') | list }}"
     cacheable: no
   delegate_facts: True
 
 - name: Check if sudoers rules exists
   stat: path="/etc/sudoers.d/adminvp-smena"
   register: sudoers_rules_status
+
+- name: Check adminos sudoers permission allow
+  shell:
+    cmd: "sudo -l -U adminos | grep -oh -E 'User(.)*(may run the following commands)'"
+  register: check_adminos_sudoers_yes
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Check adminos sudoers permission deny
+  shell:
+    cmd: "sudo -l -U adminos | grep -oh -E 'User(.)*is not allowed to run sudo'"
+  register: check_adminos_sudoers_no
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Check adminptk sudoers permission allow
+  shell:
+    cmd: "sudo -l -U adminptk | grep -oh -E 'User(.)*(may run the following commands)'"
+  register: check_adminptk_sudoers_yes
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Check adminptk sudoers permission deny
+  shell:
+    cmd: "sudo -l -U adminptk | grep -oh -E 'User(.)*is not allowed to run sudo'"
+  register: check_adminptk_sudoers_no
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Check smenaptk sudoers permission allow
+  shell:
+    cmd: "sudo -l -U smenaptk | grep -oh -E 'User(.)*(may run the following commands)'"
+  register: check_smenaptk_sudoers_yes
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Check smenaptk sudoers permission deny
+  shell:
+    cmd: "sudo -l -U smenaptk | grep -oh -E 'User(.)*is not allowed to run sudo'"
+  register: check_smenaptk_sudoers_no
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Check adminvp sudoers permission allow
+  shell:
+    cmd: "sudo -l -U {{ item }} | grep -oh -E 'User(.)*(may run the following commands)'"
+  register: check_adminvp_sudoers_yes
+  loop: "{{ adminvp_accounts }}"
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Check adminvp sudoers permission deny
+  shell:
+    cmd: "sudo -l -U {{ item }} | grep -oh -E 'User(.)*is not allowed to run sudo'"
+  register: check_adminvp_sudoers_no
+  loop: "{{ adminvp_accounts }}"
+  changed_when: False
+  ignore_errors: yes 
+
+- name: SUDO RESULTS
+  set_fact:
+    adminvp_sudo_state_yes: "{{ adminvp_sudo_state_yes| default([]) }} + [ '{{ item.stdout }}' ]"
+  delegate_facts: True
+  loop: "{{ check_adminvp_sudoers_yes.results }}"
+
+- name: SUDO RESULTS
+  set_fact:
+    adminvp_sudo_state_no: "{{ adminvp_sudo_state_no| default([]) }} + [ '{{ item.stdout }}' ]"
+  delegate_facts: True
+  loop: "{{ check_adminvp_sudoers_no.results }}"
+
+- name: Check foreman-proxy-user sudoers permission allow
+  shell:
+    cmd: "sudo -l -U foreman-proxy-user | grep -oh -E 'User(.)*(may run the following commands)'"
+  register: check_foreman_proxy_user_sudoers_yes
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Check foreman-proxy-user sudoers permission deny
+  shell:
+    cmd: "sudo -l -U foreman-proxy-user | grep -oh -E 'User(.)*is not allowed to run sudo'"
+  register: check_foreman_proxy_user_sudoers_no
+  changed_when: False
+  ignore_errors: yes 
 
 - name: Get sshd config
   slurp:
@@ -114,6 +221,8 @@
 - name: Get ITM agent running processes
   shell: "ps -ef | grep -v grep | grep -w  klzagent | awk '{print $2}'"
   register: itm_running_processes
+  changed_when: False
+  ignore_errors: yes 
 
 - name: Check if Netbackup agent exists
   stat: path="/usr/openv/netbackup/bin/vnetd"
@@ -122,4 +231,24 @@
 - name: Get Netbackup agent running processes
   shell: "ps -ef | grep -v grep | grep -w  vnetd | awk '{print $2}'"
   register: vnet_running_processes
+  changed_when: False
+  ignore_errors: yes 
+
+- name: Get auditd rules
+  slurp:
+    src: /etc/audit/rules.d/audit.rules
+  register: audit_rules
+
+- name: Get audit rules content
+  set_fact:
+    audit_rules_content: "{{ audit_rules['content'] | b64decode }}"
+    cacheable: no
+  delegate_facts: True
+
+- name: Get SELinux status
+  shell: "getenforce"
+  register: selinux_status
+  changed_when: False
+  ignore_errors: yes 
+
 ...
