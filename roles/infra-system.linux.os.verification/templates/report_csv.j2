@@ -1,0 +1,36 @@
+IP Address;Hostname FQDN;OS release;From Kickstart;Disk layout (VG);NTP;Users exists;Sudoers rule;SSHD deny;ITM agent;Netbackup agent;Auditd;SELinux;Firewall;
+{% for host in play_hosts %}
+{% set ks_cfg_disk = hostvars[host]['ks_cfg_disk'] %}{% set ks_cfg_network = hostvars[host]['ks_cfg_network'] %}{% set ks_cfg_bash = hostvars[host]['ks_cfg_bash'] %}
+{% set vg_systemdata = hostvars[host]['vg_systemdata'] %}{% set vg_software = hostvars[host]['vg_software'] %}{% set vg_otherdata = hostvars[host]['vg_otherdata'] %}
+{% set ntp_servers = hostvars[host]['ntp_servers'] %}
+{% set adminos_user = hostvars[host]['adminos_account'] %}{% set adminptk_user = hostvars[host]['adminptk_account'] %}{% set smenaptk_user = hostvars[host]['smenaptk_account'] %}{% set adminvp_users = hostvars[host]['adminvp_accounts'] %}{% set foreman_proxy_user_user = hostvars[host]['foreman_proxy_user_account'] %}
+{% set check_adminos_sudoers_yes = hostvars[host]['check_adminos_sudoers_yes'] %}{% set check_adminptk_sudoers_yes = hostvars[host]['check_adminptk_sudoers_yes'] %}{% set check_smenaptk_sudoers_yes = hostvars[host]['check_smenaptk_sudoers_yes'] %}{% set adminvp_sudo_state_yes = hostvars[host]['adminvp_sudo_state_yes'] %}{% set check_foreman_proxy_user_sudoers_yes = hostvars[host]['check_foreman_proxy_user_sudoers_yes'] %}
+{% set check_adminos_sudoers_no = hostvars[host]['check_adminos_sudoers_no'] %}{% set check_adminptk_sudoers_no = hostvars[host]['check_adminptk_sudoers_no'] %}{% set check_smenaptk_sudoers_no = hostvars[host]['check_smenaptk_sudoers_no'] %}{% set adminvp_sudo_state_no = hostvars[host]['adminvp_sudo_state_no'] %}{% set check_foreman_proxy_user_sudoers_no = hostvars[host]['check_foreman_proxy_user_sudoers_no'] %}
+{% set sshd_deny_smenaptk = hostvars[host]['sshd_deny_smenaptk'] %}
+{% set itm_status = hostvars[host]['itm_running_processes'] %}
+{% set vnet_status = hostvars[host]['vnet_running_processes'] %}
+{% set audit_rules = hostvars[host]['audit_rules_content'] %}
+{% set sl_status = hostvars[host]['selinux_status']['stdout'] %}
+{% if hostvars[host]['ansible_facts']['services']['iptables.service']['status'] is defined %}
+{% set iptables_status = hostvars[host]['ansible_facts']['services']['iptables.service']['status'] %}
+{% set iptables_state = hostvars[host]['iptables_state']['stdout'] %}
+{% else %}
+{% set iptables_status = 'no' %}
+{% set iptables_state = 'no' %}
+{% endif %}
+{% if hostvars[host]['ansible_facts']['services']['nftables.service']['status'] is defined %}
+{% set nftables_status = hostvars[host]['ansible_facts']['services']['nftables.service']['status'] %}
+{% set nftables_state = hostvars[host]['nftables_state']['stdout'] %}
+{% else %}
+{% set nftables_status = 'no' %}
+{% set nftables_state = 'no' %}
+{% endif %}
+{% if hostvars[host]['ansible_facts']['services']['firewalld.service']['status'] is defined %}
+{% set firewalld_status = hostvars[host]['ansible_facts']['services']['firewalld.service']['status'] %}
+{% set firewalld_state = hostvars[host]['ansible_facts']['services']['firewalld.service']['state'] %}
+{% else %}
+{% set firewalld_status = 'no' %}
+{% set firewalld_state = 'no' %}
+{% endif %}
+{{ hostvars[host].ansible_facts.default_ipv4.address }};{{ hostvars[host].ansible_facts.fqdn }};{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }};{% if ks_cfg_disk is defined and ks_cfg_network is defined and ks_cfg_bash is defined %}PASS{% else %}FAIL{% endif %};{% if vg_systemdata is defined and vg_software is defined and vg_otherdata is defined %}PASS{% else %}FAIL{% endif %};{% if ntp_servers is defined %}PASS{% else %}FAIL{% endif %};{% if adminos_user is defined and adminptk_user is defined and smenaptk_user is defined and adminvp_users is defined and foreman_proxy_user_user is defined %}PASS{% else %}FAIL{% endif %};{% if (check_adminos_sudoers_yes is defined and check_adminos_sudoers_yes | length > 0) and (check_adminptk_sudoers_yes is defined and check_adminptk_sudoers_yes | length > 0) and (check_smenaptk_sudoers_yes is defined and check_smenaptk_sudoers_yes | length > 0) and (adminvp_sudo_state_yes is defined and adminvp_sudo_state_yes | length > 0) and (check_foreman_proxy_user_sudoers_yes is defined and check_foreman_proxy_user_sudoers_yes | length > 0) %}PASS{% else %}FAIL{% endif %};{% if sshd_deny_smenaptk is defined and sshd_deny_smenaptk | length > 0 %}PASS{% else %}FAIL{% endif %};{% if itm_status is defined %}PASS{% else %}FAIL{% endif %};{% if vnet_status is defined %}PASS{% else %}FAIL{% endif %};{% if 'auditcmd' in audit_rules or ('-f 1' not in audit_rules and '-e 2' not in audit_rules) %}FAIL{% else %}PASS{% endif %};{% if sl_status == 'Disabled' %}FAIL{% else %}PASS{% endif %};{% if (iptables_status == 'enabled' or nftables_status == 'enabled' or firewalld_status == 'enabled') and (iptables_state == 'active' or nftables_state == 'active' or firewalld_state == 'running') %}PASS{% else %}FAIL{% endif %};
+{% endfor %}
