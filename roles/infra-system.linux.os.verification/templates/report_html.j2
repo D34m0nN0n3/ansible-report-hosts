@@ -9,6 +9,12 @@
   <style>
      {% include 'includes/bootstrap/bootstrap-select.min.css' %}
   </style>
+  <script>
+      {% include 'includes/sort-table.js' %}
+  </script>
+  <style>
+     {% include 'includes/sort-table.css' %}
+  </style>  
   <title>Report</title>
   {% include 'includes/styles.j2' %}
 </head>
@@ -21,7 +27,7 @@
         </div>
 </div>
 <div class="container">
-<table class="table table-striped table-hover table-sm table-bordered">
+<table class="table table-striped table-hover table-sm table-bordered js-sort-table">
     <thead class="thead-dark">
         <tr>
             <th>Hostname</th>
@@ -90,17 +96,17 @@
             {% set smenaptk_user = hostvars[host]['smenaptk_account'] %}
             {% set adminvp_users = hostvars[host]['adminvp_accounts'] %}
             {% set foreman_proxy_user_user = hostvars[host]['foreman_proxy_user_account'] %}
-            {% if adminos_user is defined %}
+            {% if adminos_user is defined and adminos_user | length > 0 %}
             <span class="badge badge-pill badge-success">adminos</span>
             {% else %}
             <span class="badge badge-pill badge-danger">adminos</span>
             {% endif %}
-            {% if adminptk_user is defined %}
+            {% if adminptk_user is defined and adminptk_user | length > 0 %}
             <span class="badge badge-pill badge-success">adminptk</span>
             {% else %}
             <span class="badge badge-pill badge-danger">adminptk</span>
             {% endif %}
-            {% if smenaptk_user is defined %}
+            {% if smenaptk_user is defined and smenaptk_user | length > 0 %}
             <span class="badge badge-pill badge-success">smenaptk</span>
             {% else %}
             <span class="badge badge-pill badge-danger">smenaptk/span>
@@ -110,7 +116,7 @@
             {% else %}
             <span class="badge badge-pill badge-danger">adminvp users</span>
             {% endif %}
-            {% if foreman_proxy_user_user is defined %}
+            {% if foreman_proxy_user_user is defined and foreman_proxy_user_user | length > 0 %}
             <span class="badge badge-pill badge-success">foreman-proxy-user</span>
             {% else %}
             <span class="badge badge-pill badge-danger">foreman-proxy-user</span>
@@ -142,7 +148,7 @@
             {% if check_adminptk_sudoers_no is defined and check_adminptk_sudoers_no | length > 0 %}
             <span class="badge badge-pill badge-danger">{{ check_adminptk_sudoers_no.stdout }}</span>
             {% endif %}
-            {% if check_adminptk_sudoers_yes.stderr | length > 0 and check_aadminptk_sudoers_no.stderr | length > 0 %}
+            {% if check_adminptk_sudoers_yes.stderr | length > 0 and check_adminptk_sudoers_no.stderr | length > 0 %}
             <span class="badge badge-pill badge-danger">User adminptk sudo not configure</span>
             {% endif %}
             {% if check_smenaptk_sudoers_yes is defined and check_smenaptk_sudoers_yes | length > 0 %}
@@ -194,7 +200,7 @@
             <td>
             {% set audit_rules = hostvars[host]['audit_rules_content'] %}
             {% if audit_rules is defined %}
-            {%  if '-f 1' not in audit_rules and '-e 2' not in audit_rules %}<span class="badge badge-pill badge-danger">Rules not configure</span>{%  endif %}{%  if 'auditcmd' in audit_rules %}<span class="badge badge-pill badge-danger">Rules deprecated<br>(need fix)</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and ((audit_rules | regex_search('(rootcmd|usercmd)')) or (audit_rules | regex_search('(cmd-root|cmd-user)'))) and ((audit_rules | regex_search('-S open -F auid>=1000(?! -F auid!=4294967295) -F key=audit-userfile')) or (audit_rules | regex_search('auid>=1000 -S open -k audit-userfile'))) %}<span class="badge badge-pill badge-warning">Rules deprecated<br>(new version available)</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and 'audit-userfile' not in audit_rules and ((audit_rules | regex_search('(rootcmd|usercmd)')) or (audit_rules | regex_search('(cmd-root|cmd-user)'))) %}<span class="badge badge-pill badge-warning">Rules minimal set</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and (audit_rules | regex_search('(rootcmd|usercmd)')) and (audit_rules | regex_search('-S open -F auid>=1000 -F auid!=4294967295 -F key=audit-userfile')) %}<span class="badge badge-pill badge-success">Rules pass</span>{%  endif %}
+            {%  if '-f 1' not in audit_rules and '-e 2' not in audit_rules and 'auditcmd' not in audit_rules %}<span class="badge badge-pill badge-danger">Rules not configure</span>{%  endif %}{%  if 'auditcmd' in audit_rules %}<span class="badge badge-pill badge-danger">Rules deprecated<br>(need fix)</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and ((audit_rules | regex_search('(rootcmd|usercmd)')) or (audit_rules | regex_search('(cmd-root|cmd-user)'))) and ((audit_rules | regex_search('-S open -F auid>=1000(?! -F auid!=4294967295) -F key=audit-userfile')) or (audit_rules | regex_search('auid>=1000 -S open -k audit-userfile'))) %}<span class="badge badge-pill badge-warning">Rules deprecated<br>(new version available)</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and 'audit-userfile' not in audit_rules and ((audit_rules | regex_search('(rootcmd|usercmd)')) or (audit_rules | regex_search('(cmd-root|cmd-user)'))) %}<span class="badge badge-pill badge-warning">Rules minimal set</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and (audit_rules | regex_search('(rootcmd|usercmd)')) and (audit_rules | regex_search('-S open -F auid>=1000 -F auid!=4294967295 -F key=audit-userfile')) %}<span class="badge badge-pill badge-success">Rules pass</span>{%  endif %}
             {% endif %}
             </td>
             <td>
