@@ -27,7 +27,12 @@
         </div>
 </div>
 <div class="container">
-<table class="table table-striped table-hover table-sm table-bordered js-sort-table">
+    <p align="center">
+    <input id="download" onclick="Javascript:download_table_as_csv('myTableData')" type="button" value="Сохранить таблицу в CSV">
+    <hr></p>
+</div>
+<div class="container">
+<table id="myTableData" class="table table-striped table-hover table-sm table-bordered js-sort-table">
     <thead class="thead-dark">
         <tr>
             <th>Hostname</th>
@@ -35,6 +40,7 @@
             <th>OS release</th>
             <th>From Kickstart</th>
             <th>Disk layout (VG)</th>
+            <th>DNS</th>
             <th>NTP</th>
             <th>Users exists</th>
             <th>Sudoers rule</th>
@@ -51,7 +57,16 @@
         <tr>
             <td><span data-toggle="tooltip" data-placement="left" class="badge badge-gray-dark" id="Host-{{ hostvars[host]['ansible_fqdn'] }}">{{ hostvars[host]['ansible_fqdn'] }}</span></td>
             <td><span data-toggle="tooltip" data-placement="left" class="badge badge-gray">{{ hostvars[host]['ansible_default_ipv4']['address'] }}</span></td>
-            {% if hostvars[host]['ansible_distribution_version']|float <= 7.5|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-danger">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}{% if hostvars[host]['ansible_distribution_version']|float >= 7.6|float and hostvars[host]['ansible_distribution_version']|float <= 7.7|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-warning">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}{% if hostvars[host]['ansible_distribution_version']|float >= 7.8|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-success">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}
+            {%  if hostvars[host]['ansible_os_family'] == 'RedHat' %}
+            {% if hostvars[host]['ansible_distribution_version']|float <= 7.5|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-danger">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}
+            {% if hostvars[host]['ansible_distribution_version']|float >= 7.6|float and hostvars[host]['ansible_distribution_version']|float <= 7.7|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-warning">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}
+            {% if hostvars[host]['ansible_distribution_version']|float >= 7.8|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-success">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}
+            {%  endif %}
+            {%  if hostvars[host]['ansible_os_family'] == 'RED' %}
+            {% if hostvars[host]['ansible_distribution_version'].split('.')[:2]|join('.')|float <= 7.1|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-danger">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}
+            {% if hostvars[host]['ansible_distribution_version'].split('.')[:2]|join('.')|float == 7.2|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-success">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}
+            {% if hostvars[host]['ansible_distribution_version'].split('.')[:2]|join('.')|float >= 7.3|float %}<td><span data-toggle="tooltip" data-placement="left" class="badge badge-pill badge-success">{{ hostvars[host]['ansible_distribution'] }} {{ hostvars[host]['ansible_distribution_version'] }}</span></td>{% endif %}
+            {%  endif %}
             <td>
             {% set ks_cfg_disk = hostvars[host]['ks_cfg_disk'] %}
             {% set ks_cfg_network = hostvars[host]['ks_cfg_network'] %}
@@ -83,6 +98,14 @@
             {% endif %}
             </td>
             <td>
+            {% set dns_servers = hostvars[host]['ansible_facts']['dns']['nameservers'] %}
+            {% if dns_servers is defined %}
+            <span data-toggle="tooltip" data-placement="left" class="badge badge-gray-dark">{%  for servers in dns_servers %}{{ servers }}{% if not loop.last %},{% endif %}{%  endfor %}</span>
+            {% else %}
+            <span class="badge badge-pill badge-danger">NO</span>
+            {% endif %}
+            </td>
+            <td>
             {% set ntp_servers = hostvars[host]['ntp_servers'] %}
             {% if ntp_servers is defined %}
             <span class="badge badge-pill badge-success">{%  for servers in ntp_servers | map('regex_search','\\s10.\\d{1,3}.\\d{1,3}.\\d{1,3}') | select('string') | list %}{{ servers }}{% if not loop.last %},{% endif %}{%  endfor %}</span>
@@ -109,7 +132,7 @@
             {% if smenaptk_user is defined and smenaptk_user | length > 0 %}
             <span class="badge badge-pill badge-success">smenaptk</span>
             {% else %}
-            <span class="badge badge-pill badge-danger">smenaptk/span>
+            <span class="badge badge-pill badge-danger">smenaptk</span>
             {% endif %}
             {% if adminvp_users is defined %}
             {%  for users in adminvp_users | sort %}<span class="badge badge-pill badge-success">{{ users }}</span>{%  endfor %}
@@ -200,7 +223,7 @@
             <td>
             {% set audit_rules = hostvars[host]['audit_rules_content'] %}
             {% if audit_rules is defined %}
-            {%  if '-f 1' not in audit_rules and '-e 2' not in audit_rules and 'auditcmd' not in audit_rules %}<span class="badge badge-pill badge-danger">Rules not configure</span>{%  endif %}{%  if 'auditcmd' in audit_rules %}<span class="badge badge-pill badge-danger">Rules deprecated<br>(need fix)</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and ((audit_rules | regex_search('(rootcmd|usercmd)')) or (audit_rules | regex_search('(cmd-root|cmd-user)'))) and ((audit_rules | regex_search('-S open -F auid>=1000(?! -F auid!=4294967295) -F key=audit-userfile')) or (audit_rules | regex_search('auid>=1000 -S open -k audit-userfile'))) %}<span class="badge badge-pill badge-warning">Rules deprecated<br>(new version available)</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and 'audit-userfile' not in audit_rules and ((audit_rules | regex_search('(rootcmd|usercmd)')) or (audit_rules | regex_search('(cmd-root|cmd-user)'))) %}<span class="badge badge-pill badge-warning">Rules minimal set</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and (audit_rules | regex_search('(rootcmd|usercmd)')) and (audit_rules | regex_search('-S open -F auid>=1000 -F auid!=4294967295 -F key=audit-userfile')) %}<span class="badge badge-pill badge-success">Rules pass</span>{%  endif %}
+            {%  if '-f 1' not in audit_rules and '-e 2' not in audit_rules and 'auditcmd' not in audit_rules %}<span class="badge badge-pill badge-danger">Rules not configure</span>{%  endif %}{%  if 'backlog_wait_time 60000' in audit_rules and not audit_rules | regex_search('(cmd-root|cmd-user)') %}<span class="badge badge-pill badge-danger">Rules not configure</span>{%  endif %}{%  if 'auditcmd' in audit_rules %}<span class="badge badge-pill badge-danger">Rules deprecated<br>(need fix)</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and ((audit_rules | regex_search('(rootcmd|usercmd)')) or (audit_rules | regex_search('(cmd-root|cmd-user)'))) and ((audit_rules | regex_search('-S open -F auid>=1000(?! -F auid!=4294967295) -F key=audit-userfile')) or (audit_rules | regex_search('auid>=1000 -S open -k audit-userfile'))) %}<span class="badge badge-pill badge-warning">Rules deprecated<br>(new version available)</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and 'audit-userfile' not in audit_rules and ((audit_rules | regex_search('(rootcmd|usercmd)')) or (audit_rules | regex_search('(cmd-root|cmd-user)'))) %}<span class="badge badge-pill badge-warning">Rules minimal set</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and (audit_rules | regex_search('(rootcmd|usercmd)')) and (audit_rules | regex_search('-S open -F auid>=1000 -F auid!=4294967295 -F key=audit-userfile')) %}<span class="badge badge-pill badge-success">Rules pass</span>{%  endif %}{%  if 'auditcmd' not in audit_rules and (audit_rules | regex_search('(cmd-root|cmd-user)')) and (audit_rules | regex_search('auid>=1000 -F auid!=4294967295 -S open -k audit-userfile')) %}<span class="badge badge-pill badge-success">Rules pass</span>{%  endif %}
             {% endif %}
             </td>
             <td>
@@ -263,5 +286,8 @@
             {% include 'includes/bootstrap/bootstrap-select.min.js' %}
         </script>
 
+        <script>
+            {% include 'includes/tabledynamic.js' %}
+        </script>
 </body>
 </html>
